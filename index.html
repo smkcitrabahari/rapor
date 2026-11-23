@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Rapor Kurikulum Merdeka - SMK Citra Bahari Wakatobi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* Styling Khusus Cetak Rapor Kertas F4 (215mm x 330mm) */
+    .f4-page {
+      width: 215mm;
+      min-height: 330mm;
+      padding: 14mm 16mm 14mm 16mm;
+      margin: 0 auto 24px auto;
+      background: #ffffff;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 10.5pt;
+      line-height: 1.32;
+      color: #000000;
+      position: relative;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .rapor-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      margin-bottom: 10px;
+      font-size: 10pt;
+    }
+
+    .rapor-table th,
+    .rapor-table td {
+      border: 1px solid #000000;
+      padding: 4.5px 6px;
+      vertical-align: top;
+    }
+
+    .rapor-table th {
+      background-color: #f3f4f6 !important;
+      font-weight: bold;
+      text-align: center;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .rapor-group-row td {
+      background-color: #f9fafb !important;
+      font-weight: bold;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .identitas-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5pt;
+      margin-bottom: 8px;
+    }
+
+    .identitas-table td {
+      padding: 2px 3px;
+      vertical-align: top;
+    }
+
+    .page-footer {
+      border-top: 1px solid #9ca3af;
+      padding-top: 4px;
+      margin-top: 10px;
+      font-size: 9pt;
+      display: flex;
+      justify-content: space-between;
+      color: #374151;
+    }
+
+    @media print {
+      @page {
+        size: 215mm 330mm;
+        margin: 0;
+      }
+
+      body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      #printAreaContainer {
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .f4-page {
+        width: 215mm;
+        height: 330mm;
+        min-height: 330mm;
+        margin: 0 !important;
+        padding: 13mm 15mm 13mm 15mm;
+        box-shadow: none !important;
+        page-break-after: always;
+        break-after: page;
+      }
+
+      .f4-page:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= HALAMAN LOGIN (3 PERAN DROPDOWN) ================= -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+      <div class="bg-blue-900 text-white p-6 text-center">
+        <div class="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl font-bold tracking-wider">
+          ER
+        </div>
+        <h1 class="text-xl font-bold tracking-tight">E-RAPOR KURIKULUM MERDEKA</h1>
+        <p class="text-blue-200 text-xs mt-1">SMK Negeri 1 Wakatobi &bull; Tahun Pelajaran 2026/2027</p>
+      </div>
+
+      <form id="loginForm" class="p-6 space-y-4">
+        <div id="loginAlert" class="hidden p-3 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200"></div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Masuk Sebagai</label>
+          <select id="loginRole" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+            <option value="GURU">Guru Mata Pelajaran</option>
+            <option value="WALI_KELAS">Wali Kelas</option>
+            <option value="ADMIN">Admin Kurikulum</option>
+          </select>
+        </div>
+
+        <div>
+          <label id="loginUserLabel" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Nomor HP Guru</label>
+          <input type="text" id="loginUsername" required placeholder="Contoh: 085298875399"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Kata Sandi</label>
+          <input type="password" id="loginPassword" required placeholder="Masukkan kata sandi"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600" />
+          <p id="loginHint" class="text-[11px] text-slate-500 mt-1">Guru &amp; Wali Kelas menggunakan Nomor HP dan sandi default <b>123456</b>.</p>
+        </div>
+
+        <button type="submit" id="btnLogin"
+          class="w-full py-2.5 px-4 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2">
+          <span>Masuk ke Aplikasi</span>
+        </button>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <span id="serverConnStatus" class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Menghubungkan ke Server...
+          </span>
+          <span>Kertas F4 &bull; T.A 2026/2027</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= APLIKASI UTAMA ================= -->
+  <div id="mainApp" class="hidden min-h-screen flex flex-col">
+
+    <!-- NAVBAR -->
+    <header class="no-print bg-slate-900 text-white shadow-md sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-sm">ER</div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-bold text-sm sm:text-base leading-tight">E-Rapor Kurikulum Merdeka</h1>
+              <span id="roleBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30">GURU</span>
+            </div>
+            <p class="text-xs text-slate-300" id="userInfoSubtitle">SMK Citra Bahari Wakatobi</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="globalTahun" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white">
+            <option value="2026/2027" selected>T.A. 2026/2027</option>
+            <option value="2025/2026">T.A. 2025/2026</option>
+          </select>
+
+          <select id="globalSemester" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white">
+            <option value="Ganjil">Semester Ganjil</option>
+            <option value="Genap">Semester Genap</option>
+          </select>
+
+          <button onclick="syncAllFromServer(true)" class="bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+            Sinkron Server
+          </button>
+
+          <button onclick="logout()" class="bg-rose-600 hover:bg-rose-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+            Keluar
+          </button>
+        </div>
+      </div>
+
+      <!-- MENU NAVIGASI BERDASARKAN PERAN -->
+      <div class="bg-slate-800 border-t border-slate-700">
+        <div class="max-w-7xl mx-auto px-4 flex overflow-x-auto gap-1 py-1.5" id="navTabs"></div>
+      </div>
+    </header>
+
+    <!-- NOTIFIKASI TOAST -->
+    <div id="toastBox" class="no-print fixed bottom-5 right-5 z-50 hidden max-w-sm bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl border border-slate-700"></div>
+
+    <!-- KONTEN UTAMA -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+
+      <!-- ==================== TAB 1: PENGOLAHAN NILAI GURU ==================== -->
+      <section id="tab-nilai" class="tab-panel hidden space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div class="flex flex-wrap items-end justify-between gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 min-w-[280px]">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Kelompok Fase</label>
+                <select id="filterFaseNilai" onchange="onFaseNilaiChange()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <option value="ALL">Semua Fase</option>
+                  <option value="FASE_E_X">Fase E (Kelas X)</option>
+                  <option value="FASE_F_XI">Fase F (Kelas XI)</option>
+                  <option value="FASE_F_XII">Fase F (Kelas XII)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas / Rombel</label>
+                <select id="filterKelasNilai" onchange="renderTabelNilai()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Mata Pelajaran</label>
+                <select id="filterMapelNilai" onchange="renderTabelNilai()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white font-medium"></select>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="tambahKolomTP()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg border border-slate-300">
+                + Tambah TP
+              </button>
+              <button onclick="hapusKolomTP()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg border border-slate-300">
+                - Kurangi TP
+              </button>
+              <button onclick="tarikNilaiSASDariServer()" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg">
+                Tarik SAS Ujian
+              </button>
+              <button onclick="simpanNilaiMapelKeServer()" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow">
+                Simpan Nilai ke Server
+              </button>
+            </div>
+          </div>
+
+          <div id="mapelQuickBadges" class="mt-3 flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- TABEL INPUT NILAI -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-bold text-sm text-slate-800" id="judulTabelNilai">Pengolahan Nilai Sumatif &amp; SAS</h2>
+              <p class="text-xs text-slate-500">Rumus Nilai Rapor: (Rata-rata Sumatif + SAS) / 2. Nilai SAS otomatis ditarik dari hasil ujian namun tetap dapat diedit langsung.</p>
+            </div>
+            <span id="statusSimpanNilai" class="text-xs font-medium text-slate-500"></span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead id="theadNilai" class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-300"></thead>
+              <tbody id="tbodyNilai" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 2: REKAP NILAI WALI KELAS ==================== -->
+      <section id="tab-rekap" class="tab-panel hidden space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas Binaan</label>
+              <select id="filterKelasRekap" onchange="renderRekapWaliKelas()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white font-semibold"></select>
+            </div>
+            <div class="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <div>Wali Kelas: <b id="infoWaliKelasRekap">-</b></div>
+              <div>Fase Rombel: <b id="infoFaseRekap">-</b></div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="exportLegerCSV()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg">
+              Unduh Leger (CSV/Excel)
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-3.5 bg-slate-50 border-b border-slate-200">
+            <h2 class="font-bold text-sm text-slate-800">Matriks Rekapitulasi Nilai Semua Mata Pelajaran</h2>
+            <p class="text-xs text-slate-500">Menampilkan Nilai Akhir Rapor dari setiap guru mata pelajaran sesuai susunan mapel fase.</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead id="theadRekap" class="bg-slate-100 text-slate-700 font-bold border-b border-slate-300"></thead>
+              <tbody id="tbodyRekap" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 3: DATA PELENGKAP RAPOR (PKL, EKSKUL, ABSENSI) ==================== -->
+      <section id="tab-pelengkap" class="tab-panel hidden space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end justify-between gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas</label>
+              <select id="filterKelasPelengkap" onchange="onKelasPelengkapChange()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Peserta Didik</label>
+              <select id="filterSiswaPelengkap" onchange="loadFormPelengkapSiswa()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white font-semibold"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Tempat &amp; Tanggal Rapor</label>
+              <input type="text" id="inputTanggalCetak" value="Wakatobi, 20 Desember 2026"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+
+          <button onclick="simpanPelengkapKeServer()" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow">
+            Simpan Data Pelengkap
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- B. PKL -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-sm text-slate-800">B. Praktik Kerja Lapangan (PKL)</h3>
+              <button onclick="tambahBarisPKL()" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-2.5 py-1 rounded-lg border border-blue-200">+ Baris PKL</button>
+            </div>
+            <div id="listPKLContainer" class="space-y-2"></div>
+          </div>
+
+          <!-- C. Ekskul & D. Ketidakhadiran -->
+          <div class="space-y-4">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-800">C. Ekstrakurikuler</h3>
+                <button onclick="tambahBarisEkskul()" class="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-2.5 py-1 rounded-lg border border-blue-200">+ Baris Ekskul</button>
+              </div>
+              <div id="listEkskulContainer" class="space-y-2"></div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-800">D. Ketidakhadiran (Otomatis dari Absensi Harian)</h3>
+                <button onclick="hitungUlangAbsensiSiswa()" class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold px-2.5 py-1 rounded-lg border border-emerald-200">Hitung Ulang Absensi</button>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Sakit (hari)</label>
+                  <input type="number" min="0" id="inputSakit" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold" value="0" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Izin (hari)</label>
+                  <input type="number" min="0" id="inputIzin" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold" value="0" />
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Tanpa Keterangan (Alpa)</label>
+                  <input type="number" min="0" id="inputAlpa" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold" value="0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 4: PRATINJAU & CETAK RAPOR F4 ==================== -->
+      <section id="tab-cetak" class="tab-panel hidden space-y-4">
+        <div class="no-print bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end justify-between gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas</label>
+              <select id="filterKelasCetak" onchange="onKelasCetakChange()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Peserta Didik</label>
+              <select id="filterSiswaCetak" onchange="renderPreviewRapor()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white font-semibold"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Alamat Sekolah</label>
+              <input type="text" id="inputAlamatSekolah" value="Jl. Menara Waha No. 68 Wangi-Wangi" onchange="renderPreviewRapor()"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="cetakSatuSiswa()" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow">
+              Cetak Rapor Siswa Ini (F4)
+            </button>
+            <button onclick="cetakSemuaSatuKelas()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow">
+              Cetak 1 Kelas Sekaligus (F4)
+            </button>
+          </div>
+        </div>
+
+        <!-- AREA KERTAS F4 -->
+        <div id="printAreaContainer" class="overflow-x-auto pb-8"></div>
+      </section>
+
+      <!-- ==================== TAB 5: ADMIN - PENETAPAN WALI KELAS ==================== -->
+      <section id="tab-admin-walas" class="tab-panel hidden space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-bold text-sm text-slate-800">Penetapan Wali Kelas per Rombongan Belajar</h2>
+            <p class="text-xs text-slate-500">Tentukan guru yang bertugas sebagai Wali Kelas untuk setiap kelas dari tabel siswa.</p>
+          </div>
+          <button onclick="simpanWaliKelasKeServer()" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow">
+            Simpan Penetapan Wali Kelas
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <table class="w-full text-xs border-collapse">
+            <thead class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-300">
+              <tr>
+                <th class="p-3 text-center w-12">No</th>
+                <th class="p-3 text-left">Kelas / Rombel</th>
+                <th class="p-3 text-left">Fase</th>
+                <th class="p-3 text-center">Jumlah Siswa</th>
+                <th class="p-3 text-left">Pilih Wali Kelas (Dari Tabel Guru)</th>
+                <th class="p-3 text-left">No. HP Login</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAdminWalas" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 6: ADMIN - SUSUNAN MAPEL PER FASE ==================== -->
+      <section id="tab-admin-mapel" class="tab-panel hidden space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end justify-between gap-4">
+          <div class="flex flex-wrap items-end gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Kelompok Fase Rapor</label>
+              <select id="adminFaseSelect" onchange="renderAdminSettingMapel()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold bg-white">
+                <option value="FASE_E_X">Fase E (Kelas X)</option>
+                <option value="FASE_F_XI">Fase F (Kelas XI)</option>
+                <option value="FASE_F_XII">Fase F (Kelas XII)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Tambah Mata Pelajaran dari Server</label>
+              <div class="flex gap-2">
+                <select id="adminTambahMapelSelect" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[220px]"></select>
+                <button onclick="tambahMapelKeFase()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg">
+                  + Tambah
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="simpanSettingMapelKeServer()" class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow">
+            Simpan Susunan Mapel Fase Ini
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-3.5 bg-slate-50 border-b border-slate-200">
+            <h2 class="font-bold text-sm text-slate-800">Urutan &amp; Pengelompokan Mata Pelajaran Hasil Cetak Rapor</h2>
+            <p class="text-xs text-slate-500">Atur urutan tampil, kategori kelompok (A. Umum / B. Kejuruan), serta nama mata pelajaran yang dicetak pada rapor.</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-300">
+                <tr>
+                  <th class="p-3 text-center w-14">No</th>
+                  <th class="p-3 text-left w-48">Kelompok Rapor</th>
+                  <th class="p-3 text-left">Kode / Mapel Asli</th>
+                  <th class="p-3 text-left">Nama Tampilan di Rapor</th>
+                  <th class="p-3 text-center w-36">Urutan &amp; Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAdminMapel" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+<script>
+// ============================================================================
+// KONFIGURASI KONEKSI SERVER (BACA TABEL EXISTING + TULIS HANYA KE TABEL rapor_*)
+// ============================================================================
+const SERVER_URL = 'https://quuuaekcwblffuessuvf.supabase.co';
+const SERVER_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dXVhZWtjd2JsZmZ1ZXNzdXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3MDUwODUsImV4cCI6MjExMDI4MTA4NX0.s4BqDK73cirqO89GvToYMAlhsgUXJjxzYJrUelAiyNs';
+const db = window.supabase.createClient(SERVER_URL, SERVER_ANON_KEY);
+
+// ============================================================================
+// STATE GLOBAL APLIKASI
+// ============================================================================
+const state = {
+  user: null, // { role: 'GURU'|'WALI_KELAS'|'ADMIN', nama, nip, no_hp, mapelList: [], kelasBinaan: '' }
+  siswa: [],
+  guru: [],
+  mapel: [],
+  admin: [],
+  hasilUjian: [],
+  absensiHarian: [],
+  // 4 Tabel Rapor (Tersinkronisasi dengan Server + Cache Lokal)
+  raporNilai: {},       // key: `${tahun}|${semester}|${kelas}|${nisn}|${kodeMapel}`
+  raporWaliKelas: {},   // key: `${tahun}|${kelas}` -> { kelas, guru_id, nama_wali_kelas, nip_wali_kelas, no_hp_wali_kelas }
+  raporSettingMapel: {  // key: 'FASE_E_X' | 'FASE_F_XI' | 'FASE_F_XII'
+    FASE_E_X: [],
+    FASE_F_XI: [],
+    FASE_F_XII: []
+  },
+  raporPelengkap: {},   // key: `${tahun}|${semester}|${kelas}|${nisn}`
+  jumlahTP: 3,
+  kepalaSekolah: { nama: 'NUDDIN MAJIDO, S.Pd., M.Pd.', nip: '197712092005021005' }
+};
+
+// ============================================================================
+// HELPER NORMALISASI DATA DARI TABEL EXISTING
+// ============================================================================
+function normalizePhone(hp) {
+  if (!hp) return '';
+  let s = String(hp).replace(/[^0-9]/g, '');
+  if (s.startsWith('62')) s = '0' + s.slice(2);
+  if (s.startsWith('8')) s = '0' + s;
+  return s;
+}
+
+function getSiswaNama(s) {
+  return (s.nama_siswa || s.nama_lengkap || s.nama || s.full_name || s.student_name || '').trim();
+}
+
+function getSiswaNISN(s) {
+  return String(s.nisn || s.NISN || s.nis || s.NIS || s.id || '').trim();
+}
+
+function getSiswaNIS(s) {
+  return String(s.nis || s.NIS || '').trim();
+}
+
+function getSiswaKelas(s) {
+  return String(s.kelas || s.rombel || s.kelas_siswa || '').trim();
+}
+
+function getGuruNama(g) {
+  return String(g.nama_guru || g.nama || g.nama_lengkap || '').trim();
+}
+
+function getGuruNIP(g) {
+  return String(g.nip || g.NIP || '-').trim() || '-';
+}
+
+function getGuruHP(g) {
+  return normalizePhone(g.no_hp || g.hp || g.telepon || g.whatsapp || g.username || '');
+}
+
+function getGuruMapelArray(g) {
+  const raw = g.mapel || g.mata_pelajaran || g.mapel_diampu || '';
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(x => String(x).trim()).filter(Boolean);
+  return String(raw).split(/[,;|/]+/).map(x => x.trim()).filter(Boolean);
+}
+
+function getMapelKode(m) {
+  return String(m.kode_mapel || m.kode || m.id || m.nama_mapel || m.mapel || '').trim();
+}
+
+function getMapelNama(m) {
+  return String(m.nama_mapel || m.mapel || m.nama || m.kode_mapel || '').trim();
+}
+
+function deteksiFaseKelompok(kelasStr) {
+  const k = String(kelasStr || '').toUpperCase().trim();
+  if (/^XII\b|^12\b/.test(k)) return 'FASE_F_XII';
+  if (/^XI\b|^11\b/.test(k)) return 'FASE_F_XI';
+  if (/^X\b|^10\b/.test(k)) return 'FASE_E_X';
+  return 'FASE_F_XI';
+}
+
+function getKodeFaseCetak(kelasStr) {
+  const fk = deteksiFaseKelompok(kelasStr);
+  return fk === 'FASE_E_X' ? 'E' : 'F';
+}
+
+function getLabelFase(fk) {
+  if (fk === 'FASE_E_X') return 'Fase E (Kelas X)';
+  if (fk === 'FASE_F_XI') return 'Fase F (Kelas XI)';
+  return 'Fase F (Kelas XII)';
+}
+
+function showToast(msg, isError = false) {
+  const box = document.getElementById('toastBox');
+  box.textContent = msg;
+  box.className = `no-print fixed bottom-5 right-5 z-50 max-w-sm text-xs px-4 py-3 rounded-xl shadow-xl border ${
+    isError ? 'bg-rose-900 text-white border-rose-700' : 'bg-slate-900 text-white border-slate-700'
+  }`;
+  box.classList.remove('hidden');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => box.classList.add('hidden'), 3500);
+}
+
+// ============================================================================
+// INISIALISASI & SINKRONISASI DATA SERVER
+// ============================================================================
+async function syncAllFromServer(notify = false) {
+  const statusEl = document.getElementById('serverConnStatus');
+  try {
+    // 1. Baca tabel existing (MODE BACA SAJA - AMAN UNTUK CBT & ABSENSI QR)
+    const [resSiswa, resGuru, resMapel, resAdmin, resUjian, resAbsensi] = await Promise.all([
+      db.from('siswa').select('*'),
+      db.from('guru').select('*'),
+      db.from('mapel').select('*'),
+      db.from('admin').select('*'),
+      db.from('hasil_ujian').select('*'),
+      db.from('absensi_harian').select('*')
+    ]);
+
+    if (resSiswa.data) state.siswa = resSiswa.data.filter(s => getSiswaNama(s));
+    if (resGuru.data) state.guru = resGuru.data;
+    if (resMapel.data) state.mapel = resMapel.data;
+    if (resAdmin.data) state.admin = resAdmin.data;
+    if (resUjian.data) state.hasilUjian = resUjian.data;
+    if (resAbsensi.data) state.absensiHarian = resAbsensi.data;
+
+    // Deteksi Kepala Sekolah / Penanggung Jawab dari tabel guru
+    const kepsek = state.guru.find(g => {
+      const jab = String(g.jabatan || g.tugas_tambahan || g.role || '').toLowerCase();
+      return jab.includes('kepala sekolah') || jab.includes('penanggung jawab');
+    });
+    if (kepsek) {
+      state.kepalaSekolah = {
+        nama: getGuruNama(kepsek),
+        nip: getGuruNIP(kepsek)
+      };
+    }
+
+    // 2. Baca 4 tabel khusus E-Rapor (rapor_*) jika sudah dibuat di server
+    const [resRNilai, resRWalas, resRMapel, resRPelengkap] = await Promise.all([
+      db.from('rapor_nilai').select('*'),
+      db.from('rapor_wali_kelas').select('*'),
+      db.from('rapor_setting_mapel').select('*'),
+      db.from('rapor_pelengkap').select('*')
+    ]);
+
+    if (!resRNilai.error && resRNilai.data) {
+      resRNilai.data.forEach(row => {
+        const key = `${row.tahun_pelajaran}|${row.semester}|${row.kelas}|${row.nisn}|${row.kode_mapel}`;
+        state.raporNilai[key] = row;
+      });
+    }
+
+    if (!resRWalas.error && resRWalas.data) {
+      resRWalas.data.forEach(row => {
+        const key = `${row.tahun_pelajaran}|${row.kelas}`;
+        state.raporWaliKelas[key] = row;
+      });
+    }
+
+    if (!resRMapel.error && resRMapel.data && resRMapel.data.length > 0) {
+      state.raporSettingMapel = { FASE_E_X: [], FASE_F_XI: [], FASE_F_XII: [] };
+      resRMapel.data
+        .sort((a, b) => (a.urutan || 0) - (b.urutan || 0))
+        .forEach(row => {
+          if (state.raporSettingMapel[row.fase_key]) {
+            state.raporSettingMapel[row.fase_key].push(row);
+          }
+        });
+    } else {
+      initDefaultSettingMapel();
+    }
+
+    if (!resRPelengkap.error && resRPelengkap.data) {
+      resRPelengkap.data.forEach(row => {
+        const key = `${row.tahun_pelajaran}|${row.semester}|${row.kelas}|${row.nisn}`;
+        state.raporPelengkap[key] = row;
+      });
+    }
+
+    saveLocalCache();
+
+    if (statusEl) {
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Terhubung ke Server (${state.siswa.length} siswa)`;
+    }
+    if (notify) showToast('Data berhasil disinkronkan dari Server.');
+    if (state.user) refreshActiveView();
+  } catch (err) {
+    console.error(err);
+    loadLocalCache();
+    if (statusEl) {
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span> Mode Offline (Cache Lokal)`;
+    }
+    if (notify) showToast('Menggunakan data cache lokal (Server tidak terjangkau).', true);
+  }
+}
+
+function saveLocalCache() {
+  try {
+    localStorage.setItem('erapor_smkn1wakatobi_cache', JSON.stringify({
+      raporNilai: state.raporNilai,
+      raporWaliKelas: state.raporWaliKelas,
+      raporSettingMapel: state.raporSettingMapel,
+      raporPelengkap: state.raporPelengkap
+    }));
+  } catch (e) {}
+}
+
+function loadLocalCache() {
+  try {
+    const raw = localStorage.getItem('erapor_smkn1wakatobi_cache');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed.raporNilai) state.raporNilai = { ...parsed.raporNilai, ...state.raporNilai };
+    if (parsed.raporWaliKelas) state.raporWaliKelas = { ...parsed.raporWaliKelas, ...state.raporWaliKelas };
+    if (parsed.raporSettingMapel) state.raporSettingMapel = parsed.raporSettingMapel;
+    if (parsed.raporPelengkap) state.raporPelengkap = { ...parsed.raporPelengkap, ...state.raporPelengkap };
+  } catch (e) {}
+}
+
+function initDefaultSettingMapel() {
+  const baseList = state.mapel.map((m, idx) => {
+    const nama = getMapelNama(m);
+    const isUmum = /agama|pancasila|indonesia|jasmani|pjok|sejarah|muatan lokal|mulok|matematika|inggris|seni|informatika|ipas/i.test(nama);
+    return {
+      urutan: idx + 1,
+      kelompok: isUmum ? 'A' : 'B',
+      kode_mapel: getMapelKode(m),
+      nama_mapel_cetak: nama,
+      aktif: true
+    };
+  });
+  ['FASE_E_X', 'FASE_F_XI', 'FASE_F_XII'].forEach(fk => {
+    if (!state.raporSettingMapel[fk] || state.raporSettingMapel[fk].length === 0) {
+      state.raporSettingMapel[fk] = JSON.parse(JSON.stringify(baseList));
+    }
+  });
+}
+
+// ============================================================================
+// LOGIN 3 PERAN (GURU, WALI KELAS, ADMIN)
+// ============================================================================
+document.getElementById('loginRole').addEventListener('change', (e) => {
+  const role = e.target.value;
+  const label = document.getElementById('loginUserLabel');
+  const input = document.getElementById('loginUsername');
+  const hint = document.getElementById('loginHint');
+
+  if (role === 'ADMIN') {
+    label.textContent = 'Username Admin';
+    input.placeholder = 'Masukkan username admin';
+    hint.innerHTML = 'Menggunakan kredensial dari tabel <b>admin</b> di Server.';
+  } else if (role === 'WALI_KELAS') {
+    label.textContent = 'Nomor HP Wali Kelas';
+    input.placeholder = 'Contoh: 085298875399';
+    hint.innerHTML = 'Gunakan Nomor HP yang telah ditetapkan Admin sebagai Wali Kelas (sandi <b>123456</b>).';
+  } else {
+    label.textContent = 'Nomor HP Guru';
+    input.placeholder = 'Contoh: 085298875399';
+    hint.innerHTML = 'Gunakan Nomor HP terdaftar di tabel guru dengan sandi default <b>123456</b>.';
+  }
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const role = document.getElementById('loginRole').value;
+  const userRaw = document.getElementById('loginUsername').value.trim();
+  const passRaw = document.getElementById('loginPassword').value.trim();
+  const alertBox = document.getElementById('loginAlert');
+  alertBox.classList.add('hidden');
+
+  if (state.guru.length === 0 && state.admin.length === 0) {
+    await syncAllFromServer(false);
+  }
+
+  if (role === 'ADMIN') {
+    const foundAdmin = state.admin.find(a => {
+      const u = String(a.username || a.user || a.email || '').trim().toLowerCase();
+      const p = String(a.password || a.pass || a.sandi || '').trim();
+      return u === userRaw.toLowerCase() && p === passRaw;
+    });
+
+    if (!foundAdmin) {
+      alertBox.textContent = 'Username atau kata sandi Admin tidak sesuai.';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+
+    state.user = {
+      role: 'ADMIN',
+      nama: foundAdmin.nama || foundAdmin.nama_admin || 'Admin Kurikulum',
+      nip: '-',
+      no_hp: userRaw,
+      mapelList: [],
+      kelasBinaan: ''
+    };
+  } else {
+    const hpInput = normalizePhone(userRaw);
+    const foundGuru = state.guru.find(g => getGuruHP(g) === hpInput);
+
+    if (!foundGuru) {
+      alertBox.textContent = 'Nomor HP tidak ditemukan pada data guru di Server.';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+
+    const validPass = String(foundGuru.password || '123456').trim();
+    if (passRaw !== validPass && passRaw !== '123456') {
+      alertBox.textContent = 'Kata sandi salah. Gunakan sandi default 123456.';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+
+    if (role === 'WALI_KELAS') {
+      const tahun = document.getElementById('globalTahun').value;
+      const walasEntries = Object.values(state.raporWaliKelas).filter(w =>
+        w.tahun_pelajaran === tahun &&
+        (normalizePhone(w.no_hp_wali_kelas) === hpInput || String(w.nama_wali_kelas).toLowerCase() === getGuruNama(foundGuru).toLowerCase())
+      );
+
+      if (walasEntries.length === 0) {
+        alertBox.textContent = 'Akun Anda belum ditetapkan sebagai Wali Kelas oleh Admin pada Tahun Pelajaran ini.';
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      state.user = {
+        role: 'WALI_KELAS',
+        nama: getGuruNama(foundGuru),
+        nip: getGuruNIP(foundGuru),
+        no_hp: hpInput,
+        mapelList: getGuruMapelArray(foundGuru),
+        kelasBinaan: walasEntries[0].kelas
+      };
+    } else {
+      state.user = {
+        role: 'GURU',
+        nama: getGuruNama(foundGuru),
+        nip: getGuruNIP(foundGuru),
+        no_hp: hpInput,
+        mapelList: getGuruMapelArray(foundGuru),
+        kelasBinaan: ''
+      };
+    }
+  }
+
+  masukKeDashboard();
+});
+
+function masukKeDashboard() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+
+  const roleLabels = {
+    GURU: 'GURU MAPEL',
+    WALI_KELAS: `WALI KELAS (${state.user.kelasBinaan})`,
+    ADMIN: 'ADMIN KURIKULUM'
+  };
+  document.getElementById('roleBadge').textContent = roleLabels[state.user.role];
+  document.getElementById('userInfoSubtitle').textContent = `${state.user.nama} • SMK Citra Bahari Wakatobi`;
+
+  buildNavigationByRole();
+  populateAllDropdowns();
+}
+
+function logout() {
+  state.user = null;
+  document.getElementById('mainApp').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginPassword').value = '';
+}
+
+function buildNavigationByRole() {
+  const nav = document.getElementById('navTabs');
+  let tabs = [];
+
+  if (state.user.role === 'GURU') {
+    tabs = [
+      { id: 'nilai', label: '1. Input & Pengolahan Nilai Mapel' }
+    ];
+  } else if (state.user.role === 'WALI_KELAS') {
+    tabs = [
+      { id: 'rekap', label: '1. Rekap Nilai Semua Mapel' },
+      { id: 'pelengkap', label: '2. Data Pelengkap (PKL, Ekskul, Absensi)' },
+      { id: 'cetak', label: '3. Pratinjau & Cetak Rapor F4' }
+    ];
+  } else if (state.user.role === 'ADMIN') {
+    tabs = [
+      { id: 'admin-walas', label: '1. Penetapan Wali Kelas' },
+      { id: 'admin-mapel', label: '2. Susunan Mapel per Fase' },
+      { id: 'rekap', label: '3. Pantau Rekap Nilai' },
+      { id: 'cetak', label: '4. Pratinjau Cetak Rapor F4' }
+    ];
+  }
+
+  nav.innerHTML = tabs.map((t, idx) => `
+    <button onclick="switchTab('${t.id}')" id="navbtn-${t.id}"
+      class="nav-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition ${idx === 0 ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}">
+      ${t.label}
+    </button>
+  `).join('');
+
+  if (tabs.length > 0) switchTab(tabs[0].id);
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.nav-tab-btn').forEach(b => {
+    b.classList.remove('bg-blue-600', 'text-white');
+    b.classList.add('text-slate-300');
+  });
+
+  const panel = document.getElementById(`tab-${tabId}`);
+  const btn = document.getElementById(`navbtn-${tabId}`);
+  if (panel) panel.classList.remove('hidden');
+  if (btn) {
+    btn.classList.add('bg-blue-600', 'text-white');
+    btn.classList.remove('text-slate-300');
+  }
+
+  refreshActiveView(tabId);
+}
+
+function refreshActiveView(activeTabId) {
+  const visiblePanel = activeTabId || Array.from(document.querySelectorAll('.tab-panel')).find(p => !p.classList.contains('hidden'))?.id.replace('tab-', '');
+  if (visiblePanel === 'nilai') renderTabelNilai();
+  if (visiblePanel === 'rekap') renderRekapWaliKelas();
+  if (visiblePanel === 'pelengkap') loadFormPelengkapSiswa();
+  if (visiblePanel === 'cetak') renderPreviewRapor();
+  if (visiblePanel === 'admin-walas') renderAdminWalas();
+  if (visiblePanel === 'admin-mapel') renderAdminSettingMapel();
+}
+
+// ============================================================================
+// POPULATE DROPDOWN KELAS & MAPEL DINAMIS DARI SERVER
+// ============================================================================
+function getUniqueKelasList() {
+  const set = new Set();
+  state.siswa.forEach(s => {
+    const k = getSiswaKelas(s);
+    if (k) set.add(k);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
+}
+
+function populateAllDropdowns() {
+  const kelasList = getUniqueKelasList();
+
+  // 1. Dropdown Kelas untuk Guru Nilai
+  const selKelasNilai = document.getElementById('filterKelasNilai');
+  selKelasNilai.innerHTML = kelasList.map(k => `<option value="${k}">${k}</option>`).join('');
+
+  // 2. Dropdown Mapel untuk Guru Nilai (Otomatis terpilih sesuai kolom guru.mapel)
+  const selMapelNilai = document.getElementById('filterMapelNilai');
+  const badgesContainer = document.getElementById('mapelQuickBadges');
+  const guruMapels = state.user?.mapelList || [];
+
+  let mapelOptions = [];
+  if (state.user?.role === 'GURU' && guruMapels.length > 0) {
+    // Filter hanya mapel yang diampu guru tersebut
+    guruMapels.forEach(gm => {
+      const match = state.mapel.find(m =>
+        getMapelNama(m).toLowerCase() === gm.toLowerCase() ||
+        getMapelKode(m).toLowerCase() === gm.toLowerCase()
+      );
+      if (match) {
+        mapelOptions.push({ kode: getMapelKode(match), nama: getMapelNama(match) });
+      } else {
+        mapelOptions.push({ kode: gm, nama: gm });
+      }
+    });
+  } else {
+    mapelOptions = state.mapel.map(m => ({ kode: getMapelKode(m), nama: getMapelNama(m) }));
+  }
+
+  selMapelNilai.innerHTML = mapelOptions.map(m => `<option value="${m.kode}">${m.nama}</option>`).join('');
+
+  if (guruMapels.length > 0 && state.user?.role === 'GURU') {
+    badgesContainer.innerHTML = `<span class="text-[11px] text-slate-500 py-1">Mapel Anda:</span>` +
+      mapelOptions.map(m => `
+        <button type="button" onclick="pilihMapelCepat('${m.kode}')"
+          class="text-[11px] px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-semibold">
+          ★ ${m.nama}
+        </button>
+      `).join('');
+  } else {
+    badgesContainer.innerHTML = '';
+  }
+
+  // 3. Dropdown Kelas untuk Wali Kelas & Admin (Rekap, Pelengkap, Cetak)
+  const targetKelasWalas = (state.user?.role === 'WALI_KELAS' && state.user.kelasBinaan)
+    ? [state.user.kelasBinaan]
+    : kelasList;
+
+  ['filterKelasRekap', 'filterKelasPelengkap', 'filterKelasCetak'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = targetKelasWalas.map(k => `<option value="${k}">${k}</option>`).join('');
+    el.disabled = (state.user?.role === 'WALI_KELAS');
+  });
+
+  // 4. Dropdown Tambah Mapel pada Admin Setting Mapel
+  const selAdminMapel = document.getElementById('adminTambahMapelSelect');
+  if (selAdminMapel) {
+    selAdminMapel.innerHTML = state.mapel.map(m => `<option value="${getMapelKode(m)}">${getMapelNama(m)}</option>`).join('');
+  }
+
+  onKelasPelengkapChange();
+  onKelasCetakChange();
+}
+
+function pilihMapelCepat(kode) {
+  document.getElementById('filterMapelNilai').value = kode;
+  renderTabelNilai();
+}
+
+function onFaseNilaiChange() {
+  const faseFilter = document.getElementById('filterFaseNilai').value;
+  const allKelas = getUniqueKelasList();
+  const filtered = faseFilter === 'ALL' ? allKelas : allKelas.filter(k => deteksiFaseKelompok(k) === faseFilter);
+  const sel = document.getElementById('filterKelasNilai');
+  sel.innerHTML = filtered.map(k => `<option value="${k}">${k}</option>`).join('');
+  renderTabelNilai();
+}
+
+// ============================================================================
+// TAB 1: PENGOLAHAN NILAI GURU (SUMATIF, SAS DARI hasil_ujian, CAPAIAN)
+// ============================================================================
+function tambahKolomTP() {
+  if (state.jumlahTP < 8) {
+    state.jumlahTP++;
+    renderTabelNilai();
+  }
+}
+
+function hapusKolomTP() {
+  if (state.jumlahTP > 1) {
+    state.jumlahTP--;
+    renderTabelNilai();
+  }
+}
+
+function generateCapaianOtomatis(namaMapel, nilaiBulat) {
+  if (!nilaiBulat || nilaiBulat <= 0) return '';
+  if (nilaiBulat >= 90) {
+    return `Menunjukkan penguasaan yang sangat baik dalam memahami, menganalisis, dan menerapkan konsep serta keterampilan pada mata pelajaran ${namaMapel}.`;
+  } else if (nilaiBulat >= 80) {
+    return `Menunjukkan penguasaan yang baik dalam memahami materi dan menyelesaikan tugas pada mata pelajaran ${namaMapel} dengan tepat.`;
+  } else if (nilaiBulat >= 70) {
+    return `Menunjukkan penguasaan yang cukup baik pada mata pelajaran ${namaMapel}, namun masih perlu latihan pendalaman pada beberapa kompetensi dasar.`;
+  }
+  return `Perlu bimbingan dan pendampingan lebih lanjut dalam memahami konsep dasar pada mata pelajaran ${namaMapel}.`;
+}
+
+function cariNilaiSASServer(siswa, kodeMapel, namaMapel) {
+  const nisn = getSiswaNISN(siswa).toLowerCase();
+  const nis = getSiswaNIS(siswa).toLowerCase();
+  const namaS = getSiswaNama(siswa).toLowerCase();
+  const km = kodeMapel.toLowerCase();
+  const nm = namaMapel.toLowerCase();
+
+  const match = state.hasilUjian.find(h => {
+    const hNisn = String(h.nisn || h.NISN || h.nis || h.NIS || '').trim().toLowerCase();
+    const hNama = String(h.nama_siswa || h.nama || '').trim().toLowerCase();
+    const hMapel = String(h.kode_mapel || h.mapel || h.nama_mapel || '').trim().toLowerCase();
+
+    const siswaCocok = (nisn && hNisn === nisn) || (nis && hNisn === nis) || (namaS && hNama === namaS);
+    const mapelCocok = hMapel === km || hMapel === nm || hMapel.includes(nm) || nm.includes(hMapel);
+    return siswaCocok && mapelCocok;
+  });
+
+  if (!match) return '';
+  const skor = match.nilai ?? match.skor ?? match.nilai_akhir ?? match.hasil ?? '';
+  return skor !== '' && !isNaN(Number(skor)) ? Number(skor) : '';
+}
+
+function renderTabelNilai() {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasNilai').value;
+  const selMapel = document.getElementById('filterMapelNilai');
+  const kodeMapel = selMapel.value;
+  const namaMapel = selMapel.options[selMapel.selectedIndex]?.text || kodeMapel;
+
+  document.getElementById('judulTabelNilai').textContent = `Pengolahan Nilai: ${namaMapel} — Kelas ${kelas || '-'}`;
+
+  // Header TP dinamis
+  let tpHeaders = '';
+  for (let i = 1; i <= state.jumlahTP; i++) {
+    tpHeaders += `<th class="p-2.5 text-center border-r border-slate-300 min-w-[78px]">Sumatif ${i}<br><span class="text-[10px] font-normal text-slate-500">(TP ${i})</span></th>`;
+  }
+
+  document.getElementById('theadNilai').innerHTML = `
+    <tr>
+      <th class="p-2.5 text-center border-r border-slate-300 w-10">No</th>
+      <th class="p-2.5 text-left border-r border-slate-300 min-w-[190px]">Nama Siswa</th>
+      ${tpHeaders}
+      <th class="p-2.5 text-center border-r border-slate-300 bg-blue-50 text-blue-900 min-w-[85px]">Rata-Rata<br>Sumatif</th>
+      <th class="p-2.5 text-center border-r border-slate-300 bg-amber-50 text-amber-900 min-w-[92px]">Sumatif Akhir<br>Semester (SAS)</th>
+      <th class="p-2.5 text-center border-r border-slate-300 bg-emerald-50 text-emerald-900 min-w-[100px]">Nilai Rapor</th>
+      <th class="p-2.5 text-left min-w-[260px]">Capaian Kompetensi</th>
+    </tr>
+  `;
+
+  const siswaKelas = state.siswa
+    .filter(s => getSiswaKelas(s) === kelas)
+    .sort((a, b) => getSiswaNama(a).localeCompare(getSiswaNama(b), 'id'));
+
+  const tbody = document.getElementById('tbodyNilai');
+  if (siswaKelas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${6 + state.jumlahTP}" class="p-6 text-center text-slate-500">Tidak ada data siswa pada kelas ${kelas}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = siswaKelas.map((s, idx) => {
+    const nisn = getSiswaNISN(s);
+    const nama = getSiswaNama(s);
+    const key = `${tahun}|${semester}|${kelas}|${nisn}|${kodeMapel}`;
+    const saved = state.raporNilai[key] || {};
+    const tpArr = Array.isArray(saved.nilai_sumatif) ? saved.nilai_sumatif : [];
+
+    // Nilai SAS: prioritas dari data tersimpan, jika belum ada otomatis ambil dari tabel hasil_ujian
+    let sasVal = (saved.nilai_sas !== undefined && saved.nilai_sas !== null && saved.nilai_sas !== '')
+      ? saved.nilai_sas
+      : cariNilaiSASServer(s, kodeMapel, namaMapel);
+
+    let tpInputs = '';
+    for (let t = 0; t < state.jumlahTP; t++) {
+      const val = tpArr[t] !== undefined && tpArr[t] !== null ? tpArr[t] : '';
+      tpInputs += `
+        <td class="p-1.5 text-center border-r border-slate-200">
+          <input type="number" min="0" max="100" step="0.1" value="${val}"
+            data-nisn="${nisn}" data-tp="${t}"
+            oninput="hitungBarisNilai('${nisn}')"
+            class="inp-tp-${nisn} w-16 text-center border border-slate-300 rounded px-1.5 py-1 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </td>
+      `;
+    }
+
+    const calc = hitungAngkaRapor(tpArr, sasVal);
+    const capaianText = saved.capaian_kompetensi || (calc.bulat > 0 ? generateCapaianOtomatis(namaMapel, calc.bulat) : '');
+
+    return `
+      <tr class="hover:bg-slate-50" data-row-nisn="${nisn}" data-row-nama="${nama}">
+        <td class="p-2 text-center border-r border-slate-200 text-slate-500">${idx + 1}</td>
+        <td class="p-2 border-r border-slate-200 font-semibold text-slate-800">
+          ${nama}
+          <div class="text-[10px] font-normal text-slate-400">NISN: ${nisn}</div>
+        </td>
+        ${tpInputs}
+        <td class="p-2 text-center border-r border-slate-200 bg-blue-50/40 font-semibold text-blue-900" id="rata-${nisn}">
+          ${calc.rataStr}
+        </td>
+        <td class="p-1.5 text-center border-r border-slate-200 bg-amber-50/40">
+          <input type="number" min="0" max="100" step="0.1" value="${sasVal}"
+            id="sas-${nisn}" oninput="hitungBarisNilai('${nisn}')"
+            class="w-16 text-center border border-amber-300 bg-white rounded px-1.5 py-1 text-xs font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+        </td>
+        <td class="p-2 text-center border-r border-slate-200 bg-emerald-50/40 font-bold text-emerald-900" id="rapor-${nisn}">
+          ${calc.raporStr}
+        </td>
+        <td class="p-1.5">
+          <textarea rows="2" id="capaian-${nisn}"
+            class="w-full border border-slate-300 rounded px-2 py-1 text-[11px] leading-snug focus:ring-2 focus:ring-blue-500 focus:outline-none">${capaianText}</textarea>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function hitungAngkaRapor(tpArr, sasVal) {
+  const validTP = (tpArr || []).map(v => parseFloat(v)).filter(v => !isNaN(v));
+  const hasSAS = sasVal !== '' && sasVal !== null && !isNaN(parseFloat(sasVal));
+  const sasNum = hasSAS ? parseFloat(sasVal) : 0;
+
+  if (validTP.length === 0 && !hasSAS) {
+    return { rata: 0, rataStr: '-', desimal: 0, bulat: 0, raporStr: '-' };
+  }
+
+  const rata = validTP.length > 0
+    ? validTP.reduce((a, b) => a + b, 0) / validTP.length
+    : sasNum;
+
+  const desimal = hasSAS ? (rata + sasNum) / 2 : rata;
+  const bulat = Math.round(desimal);
+
+  return {
+    rata,
+    rataStr: rata.toFixed(1).replace('.', ','),
+    desimal,
+    bulat,
+    raporStr: `${bulat} (${desimal.toFixed(1).replace('.', ',')})`
+  };
+}
+
+function hitungBarisNilai(nisn) {
+  const selMapel = document.getElementById('filterMapelNilai');
+  const namaMapel = selMapel.options[selMapel.selectedIndex]?.text || '';
+  const tpInputs = document.querySelectorAll(`.inp-tp-${nisn}`);
+  const tpVals = Array.from(tpInputs).map(inp => inp.value);
+  const sasVal = document.getElementById(`sas-${nisn}`).value;
+
+  const calc = hitungAngkaRapor(tpVals, sasVal);
+  document.getElementById(`rata-${nisn}`).textContent = calc.rataStr;
+  document.getElementById(`rapor-${nisn}`).textContent = calc.raporStr;
+
+  const capEl = document.getElementById(`capaian-${nisn}`);
+  if (capEl && (!capEl.value.trim() || capEl.dataset.auto === '1') && calc.bulat > 0) {
+    capEl.value = generateCapaianOtomatis(namaMapel, calc.bulat);
+    capEl.dataset.auto = '1';
+  }
+}
+
+async function tarikNilaiSASDariServer() {
+  await syncAllFromServer(false);
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasNilai').value;
+  const selMapel = document.getElementById('filterMapelNilai');
+  const kodeMapel = selMapel.value;
+  const namaMapel = selMapel.options[selMapel.selectedIndex]?.text || kodeMapel;
+
+  const siswaKelas = state.siswa.filter(s => getSiswaKelas(s) === kelas);
+  let terisi = 0;
+
+  siswaKelas.forEach(s => {
+    const nisn = getSiswaNISN(s);
+    const sasServer = cariNilaiSASServer(s, kodeMapel, namaMapel);
+    if (sasServer !== '') {
+      const inp = document.getElementById(`sas-${nisn}`);
+      if (inp) {
+        inp.value = sasServer;
+        hitungBarisNilai(nisn);
+        terisi++;
+      }
+    }
+  });
+
+  showToast(`Berhasil menarik ${terisi} nilai SAS dari hasil ujian.`);
+}
+
+async function simpanNilaiMapelKeServer() {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasNilai').value;
+  const selMapel = document.getElementById('filterMapelNilai');
+  const kodeMapel = selMapel.value;
+  const namaMapel = selMapel.options[selMapel.selectedIndex]?.text || kodeMapel;
+
+  const rows = document.querySelectorAll('#tbodyNilai tr[data-row-nisn]');
+  const payload = [];
+
+  rows.forEach(tr => {
+    const nisn = tr.dataset.rowNisn;
+    const namaSiswa = tr.dataset.rowNama;
+    const tpInputs = tr.querySelectorAll(`.inp-tp-${nisn}`);
+    const tpArr = Array.from(tpInputs).map(i => i.value === '' ? null : parseFloat(i.value));
+    const sasRaw = document.getElementById(`sas-${nisn}`).value;
+    const sasNum = sasRaw === '' ? 0 : parseFloat(sasRaw);
+    const capaian = document.getElementById(`capaian-${nisn}`).value.trim();
+
+    const calc = hitungAngkaRapor(tpArr, sasRaw);
+    const key = `${tahun}|${semester}|${kelas}|${nisn}|${kodeMapel}`;
+
+    const record = {
+      tahun_pelajaran: tahun,
+      semester: semester,
+      kelas: kelas,
+      nisn: nisn,
+      nama_siswa: namaSiswa,
+      kode_mapel: kodeMapel,
+      nama_mapel: namaMapel,
+      nilai_sumatif: tpArr,
+      rata_sumatif: Number(calc.rata.toFixed(2)),
+      nilai_sas: Number(sasNum.toFixed(2)),
+      nilai_akhir_desimal: Number(calc.desimal.toFixed(2)),
+      nilai_akhir_bulat: calc.bulat,
+      capaian_kompetensi: capaian,
+      guru_penginput: state.user?.nama || ''
+    };
+
+    state.raporNilai[key] = record;
+    payload.push(record);
+  });
+
+  saveLocalCache();
+
+  try {
+    const { error } = await db.from('rapor_nilai').upsert(payload, {
+      onConflict: 'tahun_pelajaran,semester,kelas,nisn,kode_mapel'
+    });
+    if (error) throw error;
+    showToast(`Tersimpan ${payload.length} data nilai ${namaMapel} ke Server.`);
+  } catch (err) {
+    console.warn('Simpan ke tabel rapor_nilai:', err.message);
+    showToast('Nilai tersimpan di perangkat (Pastikan tabel rapor_nilai sudah dibuat di Server).', true);
+  }
+}
+
+// ============================================================================
+// TAB 2: REKAP NILAI WALI KELAS & EKSPOR LEGER
+// ============================================================================
+function getMapelSusunanByKelas(kelas) {
+  const fk = deteksiFaseKelompok(kelas);
+  const list = state.raporSettingMapel[fk] || [];
+  if (list.length > 0) return list.filter(m => m.aktif !== false);
+  return state.mapel.map((m, i) => ({
+    urutan: i + 1,
+    kelompok: 'A',
+    kode_mapel: getMapelKode(m),
+    nama_mapel_cetak: getMapelNama(m),
+    aktif: true
+  }));
+}
+
+function renderRekapWaliKelas() {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasRekap').value;
+  const walas = state.raporWaliKelas[`${tahun}|${kelas}`];
+
+  document.getElementById('infoWaliKelasRekap').textContent = walas?.nama_wali_kelas || 'Belum ditetapkan Admin';
+  document.getElementById('infoFaseRekap').textContent = getLabelFase(deteksiFaseKelompok(kelas));
+
+  const mapelSusunan = getMapelSusunanByKelas(kelas);
+  const siswaKelas = state.siswa
+    .filter(s => getSiswaKelas(s) === kelas)
+    .sort((a, b) => getSiswaNama(a).localeCompare(getSiswaNama(b), 'id'));
+
+  document.getElementById('theadRekap').innerHTML = `
+    <tr>
+      <th class="p-2.5 text-center border-r border-slate-300 w-10">No</th>
+      <th class="p-2.5 text-left border-r border-slate-300 min-w-[180px]">Nama Peserta Didik</th>
+      ${mapelSusunan.map((m, idx) => `
+        <th class="p-2 text-center border-r border-slate-300 min-w-[90px]" title="${m.nama_mapel_cetak}">
+          ${idx + 1}. ${m.nama_mapel_cetak}
+        </th>
+      `).join('')}
+      <th class="p-2.5 text-center bg-blue-50 text-blue-900 min-w-[85px]">Rata-Rata</th>
+    </tr>
+  `;
+
+  document.getElementById('tbodyRekap').innerHTML = siswaKelas.map((s, idx) => {
+    const nisn = getSiswaNISN(s);
+    let sum = 0;
+    let count = 0;
+
+    const cells = mapelSusunan.map(m => {
+      const nObj = cariNilaiSiswaUntukMapel(tahun, semester, kelas, nisn, m.kode_mapel, m.nama_mapel_cetak);
+      const val = nObj?.nilai_akhir_bulat || 0;
+      if (val > 0) {
+        sum += val;
+        count++;
+      }
+      return `<td class="p-2 text-center border-r border-slate-200 font-semibold ${val > 0 ? 'text-slate-800' : 'text-rose-400'}">${val > 0 ? val : '-'}</td>`;
+    }).join('');
+
+    const avg = count > 0 ? (sum / count).toFixed(1).replace('.', ',') : '-';
+    return `
+      <tr class="hover:bg-slate-50">
+        <td class="p-2 text-center border-r border-slate-200">${idx + 1}</td>
+        <td class="p-2 border-r border-slate-200 font-semibold text-slate-800">${getSiswaNama(s)}</td>
+        ${cells}
+        <td class="p-2 text-center bg-blue-50/50 font-bold text-blue-900">${avg}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function cariNilaiSiswaUntukMapel(tahun, semester, kelas, nisn, kodeMapel, namaMapel) {
+  const exact = state.raporNilai[`${tahun}|${semester}|${kelas}|${nisn}|${kodeMapel}`];
+  if (exact) return exact;
+
+  // Fallback pencocokan berdasarkan nama mapel jika kode berbeda
+  const prefix = `${tahun}|${semester}|${kelas}|${nisn}|`;
+  const foundKey = Object.keys(state.raporNilai).find(k => {
+    if (!k.startsWith(prefix)) return false;
+    const item = state.raporNilai[k];
+    return String(item.nama_mapel || '').toLowerCase() === String(namaMapel || '').toLowerCase();
+  });
+  return foundKey ? state.raporNilai[foundKey] : null;
+}
+
+function exportLegerCSV() {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasRekap').value;
+  const mapelSusunan = getMapelSusunanByKelas(kelas);
+  const siswaKelas = state.siswa.filter(s => getSiswaKelas(s) === kelas);
+
+  const headers = ['No', 'NISN', 'Nama Siswa', ...mapelSusunan.map(m => m.nama_mapel_cetak)];
+  const lines = [headers.join(';')];
+
+  siswaKelas.forEach((s, idx) => {
+    const nisn = getSiswaNISN(s);
+    const vals = mapelSusunan.map(m => {
+      const nObj = cariNilaiSiswaUntukMapel(tahun, semester, kelas, nisn, m.kode_mapel, m.nama_mapel_cetak);
+      return nObj?.nilai_akhir_bulat || '';
+    });
+    lines.push([idx + 1, nisn, `"${getSiswaNama(s)}"`, ...vals].join(';'));
+  });
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Leger_Nilai_${kelas.replace(/\s+/g, '_')}_${semester}_${tahun.replace('/', '-')}.csv`;
+  link.click();
+}
+
+// ============================================================================
+// TAB 3: DATA PELENGKAP RAPOR (PKL, EKSKUL, ABSENSI OTOMATIS DARI absensi_harian)
+// ============================================================================
+function onKelasPelengkapChange() {
+  const kelas = document.getElementById('filterKelasPelengkap').value;
+  const siswaKelas = state.siswa
+    .filter(s => getSiswaKelas(s) === kelas)
+    .sort((a, b) => getSiswaNama(a).localeCompare(getSiswaNama(b), 'id'));
+
+  const selSiswa = document.getElementById('filterSiswaPelengkap');
+  selSiswa.innerHTML = siswaKelas.map(s => `<option value="${getSiswaNISN(s)}">${getSiswaNama(s)} (${getSiswaNISN(s)})</option>`).join('');
+  loadFormPelengkapSiswa();
+}
+
+function hitungAbsensiDariServer(siswa) {
+  const nisn = getSiswaNISN(siswa).toLowerCase();
+  const nis = getSiswaNIS(siswa).toLowerCase();
+  const namaS = getSiswaNama(siswa).toLowerCase();
+
+  let sakit = 0;
+  let izin = 0;
+  let alpa = 0;
+
+  state.absensiHarian.forEach(row => {
+    const rNisn = String(row.nisn || row.NISN || row.nis || row.NIS || '').trim().toLowerCase();
+    const rNama = String(row.nama_siswa || row.nama || '').trim().toLowerCase();
+    const cocok = (nisn && rNisn === nisn) || (nis && rNisn === nis) || (namaS && rNama === namaS);
+    if (!cocok) return;
+
+    const st = String(row.status || row.keterangan || row.kehadiran || '').trim().toLowerCase();
+    if (st === 'sakit' || st === 's') sakit++;
+    else if (st === 'izin' || st === 'i') izin++;
+    else if (st === 'alpa' || st === 'alpha' || st === 'a' || st === 'tanpa keterangan') alpa++;
+  });
+
+  return { sakit, izin, alpa };
+}
+
+function loadFormPelengkapSiswa() {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasPelengkap').value;
+  const nisn = document.getElementById('filterSiswaPelengkap').value;
+  if (!nisn) return;
+
+  const key = `${tahun}|${semester}|${kelas}|${nisn}`;
+  const saved = state.raporPelengkap[key];
+  const siswaObj = state.siswa.find(s => getSiswaNISN(s) === nisn);
+
+  const pklList = saved?.data_pkl?.length ? saved.data_pkl : [{ mitra: '', lokasi: '', lamanya: '', keterangan: '' }];
+  const ekskulList = saved?.data_ekskul?.length ? saved.data_ekskul : [{ kegiatan: '', keterangan: '' }];
+
+  renderListPKL(pklList);
+  renderListEkskul(ekskulList);
+
+  if (saved) {
+    document.getElementById('inputSakit').value = saved.sakit ?? 0;
+    document.getElementById('inputIzin').value = saved.izin ?? 0;
+    document.getElementById('inputAlpa').value = saved.tanpa_keterangan ?? 0;
+    if (saved.tanggal_cetak) document.getElementById('inputTanggalCetak').value = saved.tanggal_cetak;
+  } else if (siswaObj) {
+    const abs = hitungAbsensiDariServer(siswaObj);
+    document.getElementById('inputSakit').value = abs.sakit;
+    document.getElementById('inputIzin').value = abs.izin;
+    document.getElementById('inputAlpa').value = abs.alpa;
+  }
+}
+
+function hitungUlangAbsensiSiswa() {
+  const nisn = document.getElementById('filterSiswaPelengkap').value;
+  const siswaObj = state.siswa.find(s => getSiswaNISN(s) === nisn);
+  if (!siswaObj) return;
+  const abs = hitungAbsensiDariServer(siswaObj);
+  document.getElementById('inputSakit').value = abs.sakit;
+  document.getElementById('inputIzin').value = abs.izin;
+  document.getElementById('inputAlpa').value = abs.alpa;
+  showToast('Rekap ketidakhadiran diperbarui dari tabel absensi_harian.');
+}
+
+function renderListPKL(list) {
+  const container = document.getElementById('listPKLContainer');
+  container.innerHTML = list.map((item, idx) => `
+    <div class="pkl-item grid grid-cols-1 sm:grid-cols-4 gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+      <input type="text" placeholder="Mitra DU/DI" value="${item.mitra || ''}" class="pkl-mitra border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+      <input type="text" placeholder="Lokasi" value="${item.lokasi || ''}" class="pkl-lokasi border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+      <input type="text" placeholder="Lamanya (mis: 3 Bulan)" value="${item.lamanya || ''}" class="pkl-lamanya border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+      <div class="flex gap-1">
+        <input type="text" placeholder="Keterangan" value="${item.keterangan || ''}" class="pkl-ket w-full border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+        <button type="button" onclick="this.closest('.pkl-item').remove()" class="px-2 text-rose-600 font-bold">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function tambahBarisPKL() {
+  const container = document.getElementById('listPKLContainer');
+  const div = document.createElement('div');
+  div.className = 'pkl-item grid grid-cols-1 sm:grid-cols-4 gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200';
+  div.innerHTML = `
+    <input type="text" placeholder="Mitra DU/DI" class="pkl-mitra border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+    <input type="text" placeholder="Lokasi" class="pkl-lokasi border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+    <input type="text" placeholder="Lamanya" class="pkl-lamanya border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+    <div class="flex gap-1">
+      <input type="text" placeholder="Keterangan" class="pkl-ket w-full border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+      <button type="button" onclick="this.closest('.pkl-item').remove()" class="px-2 text-rose-600 font-bold">×</button>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function renderListEkskul(list) {
+  const container = document.getElementById('listEkskulContainer');
+  container.innerHTML = list.map(item => `
+    <div class="ekskul-item grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+      <input type="text" placeholder="Kegiatan Ekstrakurikuler" value="${item.kegiatan || ''}" class="eks-nama border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+      <div class="flex gap-1">
+        <input type="text" placeholder="Keterangan (mis: Baik)" value="${item.keterangan || ''}" class="eks-ket w-full border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+        <button type="button" onclick="this.closest('.ekskul-item').remove()" class="px-2 text-rose-600 font-bold">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function tambahBarisEkskul() {
+  const container = document.getElementById('listEkskulContainer');
+  const div = document.createElement('div');
+  div.className = 'ekskul-item grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200';
+  div.innerHTML = `
+    <input type="text" placeholder="Kegiatan Ekstrakurikuler" class="eks-nama border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+    <div class="flex gap-1">
+      <input type="text" placeholder="Keterangan" class="eks-ket w-full border border-slate-300 rounded px-2 py-1.5 text-xs bg-white" />
+      <button type="button" onclick="this.closest('.ekskul-item').remove()" class="px-2 text-rose-600 font-bold">×</button>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+async function simpanPelengkapKeServer() {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = document.getElementById('filterKelasPelengkap').value;
+  const nisn = document.getElementById('filterSiswaPelengkap').value;
+  if (!nisn) return;
+
+  const dataPkl = Array.from(document.querySelectorAll('.pkl-item')).map(el => ({
+    mitra: el.querySelector('.pkl-mitra').value.trim(),
+    lokasi: el.querySelector('.pkl-lokasi').value.trim(),
+    lamanya: el.querySelector('.pkl-lamanya').value.trim(),
+    keterangan: el.querySelector('.pkl-ket').value.trim()
+  })).filter(x => x.mitra || x.lokasi || x.lamanya);
+
+  const dataEkskul = Array.from(document.querySelectorAll('.ekskul-item')).map(el => ({
+    kegiatan: el.querySelector('.eks-nama').value.trim(),
+    keterangan: el.querySelector('.eks-ket').value.trim()
+  })).filter(x => x.kegiatan);
+
+  const record = {
+    tahun_pelajaran: tahun,
+    semester: semester,
+    kelas: kelas,
+    nisn: nisn,
+    data_pkl: dataPkl,
+    data_ekskul: dataEkskul,
+    sakit: parseInt(document.getElementById('inputSakit').value || '0', 10),
+    izin: parseInt(document.getElementById('inputIzin').value || '0', 10),
+    tanpa_keterangan: parseInt(document.getElementById('inputAlpa').value || '0', 10),
+    tanggal_cetak: document.getElementById('inputTanggalCetak').value.trim()
+  };
+
+  state.raporPelengkap[`${tahun}|${semester}|${kelas}|${nisn}`] = record;
+  saveLocalCache();
+
+  try {
+    const { error } = await db.from('rapor_pelengkap').upsert(record, {
+      onConflict: 'tahun_pelajaran,semester,kelas,nisn'
+    });
+    if (error) throw error;
+    showToast('Data pelengkap rapor berhasil disimpan ke Server.');
+  } catch (err) {
+    showToast('Data pelengkap tersimpan di perangkat lokal.', true);
+  }
+}
+
+// ============================================================================
+// TAB 4: PRATINJAU & CETAK RAPOR F4 (PERSIS STRUKTUR KOLOM PDF)
+// ============================================================================
+function onKelasCetakChange() {
+  const kelas = document.getElementById('filterKelasCetak').value;
+  const siswaKelas = state.siswa
+    .filter(s => getSiswaKelas(s) === kelas)
+    .sort((a, b) => getSiswaNama(a).localeCompare(getSiswaNama(b), 'id'));
+
+  const selSiswa = document.getElementById('filterSiswaCetak');
+  selSiswa.innerHTML = siswaKelas.map(s => `<option value="${getSiswaNISN(s)}">${getSiswaNama(s)} (${getSiswaNISN(s)})</option>`).join('');
+  renderPreviewRapor();
+}
+
+function buildIdentitasHeaderHTML(siswa, kelas, semester, tahun, alamatSekolah) {
+  const nama = getSiswaNama(siswa).toUpperCase();
+  const nis = getSiswaNIS(siswa);
+  const nisn = getSiswaNISN(siswa);
+  const indukGabung = nis && nis !== nisn ? `${nis}/${nisn}` : nisn;
+  const faseKode = getKodeFaseCetak(kelas);
+
+  return `
+    <table class="identitas-table">
+      <tr>
+        <td style="width: 22%;">Nama Peserta Didik</td>
+        <td style="width: 38%;">: <b>${nama}</b></td>
+        <td style="width: 18%;">Kelas</td>
+        <td style="width: 22%;">: ${kelas}</td>
+      </tr>
+      <tr>
+        <td>Nomor Induk/NISN</td>
+        <td>: ${indukGabung}</td>
+        <td>Fase</td>
+        <td>: ${faseKode}</td>
+      </tr>
+      <tr>
+        <td>Sekolah</td>
+        <td>: SMK Citra Bahari Wakatobi</td>
+        <td>Semester</td>
+        <td>: ${semester}</td>
+      </tr>
+      <tr>
+        <td>Alamat</td>
+        <td>: ${alamatSekolah}</td>
+        <td>Tahun Pelajaran</td>
+        <td>: ${tahun}</td>
+      </tr>
+    </table>
+  `;
+}
+
+function buildRaporDuaHalamanHTML(siswa) {
+  const tahun = document.getElementById('globalTahun').value;
+  const semester = document.getElementById('globalSemester').value;
+  const kelas = getSiswaKelas(siswa);
+  const nisn = getSiswaNISN(siswa);
+  const namaUpper = getSiswaNama(siswa).toUpperCase();
+  const alamatSekolah = document.getElementById('inputAlamatSekolah')?.value || 'Jl. Menara Waha No. 68 Wangi-Wangi';
+
+  const mapelSusunan = getMapelSusunanByKelas(kelas);
+  const umumList = mapelSusunan.filter(m => m.kelompok === 'A');
+  const kejuruanList = mapelSusunan.filter(m => m.kelompok === 'B');
+
+  let nomorUrut = 1;
+  const renderRowsMapel = (list) => list.map(m => {
+    const nObj = cariNilaiSiswaUntukMapel(tahun, semester, kelas, nisn, m.kode_mapel, m.nama_mapel_cetak);
+    const nilaiAkhir = nObj?.nilai_akhir_bulat ? nObj.nilai_akhir_bulat : '-';
+    const capaian = nObj?.capaian_kompetensi || '-';
+    return `
+      <tr>
+        <td style="text-align:center; width: 32px;">${nomorUrut++}</td>
+        <td style="width: 210px;">${m.nama_mapel_cetak}</td>
+        <td style="text-align:center; width: 65px; font-weight:bold;">${nilaiAkhir}</td>
+        <td>${capaian}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Data Pelengkap
+  const pelengkap = state.raporPelengkap[`${tahun}|${semester}|${kelas}|${nisn}`];
+  const pklRows = (pelengkap?.data_pkl?.length ? pelengkap.data_pkl : [{ mitra: '-', lokasi: '-', lamanya: '-', keterangan: '-' }])
+    .map((p, i) => `
+      <tr>
+        <td style="text-align:center; width:35px;">${i + 1}.</td>
+        <td>${p.mitra || '-'}</td>
+        <td>${p.lokasi || '-'}</td>
+        <td>${p.lamanya || '-'}</td>
+        <td>${p.keterangan || '-'}</td>
+      </tr>
+    `).join('');
+
+  const ekskulRows = (pelengkap?.data_ekskul?.length ? pelengkap.data_ekskul : [{ kegiatan: '-', keterangan: '-' }])
+    .map((e, i) => `
+      <tr>
+        <td style="text-align:center; width:35px;">${i + 1}.</td>
+        <td>${e.kegiatan || '-'}</td>
+        <td>${e.keterangan || '-'}</td>
+      </tr>
+    `).join('');
+
+  const absAuto = pelengkap ? {
+    sakit: pelengkap.sakit ?? 0,
+    izin: pelengkap.izin ?? 0,
+    alpa: pelengkap.tanpa_keterangan ?? 0
+  } : hitungAbsensiDariServer(siswa);
+
+  const walasObj = state.raporWaliKelas[`${tahun}|${kelas}`];
+  const namaWalas = walasObj?.nama_wali_kelas || '........................................';
+  const nipWalas = walasObj?.nip_wali_kelas || '-';
+  const tglCetak = pelengkap?.tanggal_cetak || document.getElementById('inputTanggalCetak')?.value || 'Wakatobi, 20 Desember 2026';
+
+  // HALAMAN 1 (Kertas F4)
+  const page1 = `
+    <div class="f4-page">
+      <div>
+        ${buildIdentitasHeaderHTML(siswa, kelas, semester, tahun, alamatSekolah)}
+
+        <div style="font-weight:bold; margin-top:6px; margin-bottom:2px;">A. Nilai Akademik</div>
+        <table class="rapor-table">
+          <thead>
+            <tr>
+              <th style="width:32px;">No</th>
+              <th style="width:210px;">Mata Pelajaran</th>
+              <th style="width:65px;">Nilai Akhir</th>
+              <th>Capaian Kompetensi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="rapor-group-row">
+              <td colspan="4">A. Kelompok Mata Pelajaran Umum</td>
+            </tr>
+            ${renderRowsMapel(umumList)}
+            <tr class="rapor-group-row">
+              <td colspan="4">B. Kelompok Mata Pelajaran Kejuruan</td>
+            </tr>
+            ${renderRowsMapel(kejuruanList)}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="page-footer">
+        <span>${namaUpper} &nbsp;|&nbsp; ${kelas}</span>
+        <span>Halaman 1</span>
+      </div>
+    </div>
+  `;
+
+  // HALAMAN 2 (Kertas F4)
+  const page2 = `
+    <div class="f4-page">
+      <div>
+        ${buildIdentitasHeaderHTML(siswa, kelas, semester, tahun, alamatSekolah)}
+
+        <div style="font-weight:bold; margin-top:8px;">B. Praktik Kerja Lapangan</div>
+        <table class="rapor-table">
+          <thead>
+            <tr>
+              <th style="width:35px;">No</th>
+              <th>Mitra DU/DI</th>
+              <th>Lokasi</th>
+              <th>Lamanya</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pklRows}
+          </tbody>
+        </table>
+
+        <div style="font-weight:bold; margin-top:10px;">C. Ekstrakurikuler</div>
+        <table class="rapor-table">
+          <thead>
+            <tr>
+              <th style="width:35px;">No</th>
+              <th style="width:45%;">Kegiatan Ekstrakurikuler</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ekskulRows}
+          </tbody>
+        </table>
+
+        <div style="font-weight:bold; margin-top:10px;">D. Ketidakhadiran</div>
+        <table class="rapor-table" style="width: 48%;">
+          <tr>
+            <td style="width: 55%;">Sakit</td>
+            <td>: ${absAuto.sakit} hari</td>
+          </tr>
+          <tr>
+            <td>Izin</td>
+            <td>: ${absAuto.izin} hari</td>
+          </tr>
+          <tr>
+            <td>Tanpa Keterangan</td>
+            <td>: ${absAuto.alpa} hari</td>
+          </tr>
+        </table>
+
+        <!-- BLOK TANDA TANGAN SESUAI PDF -->
+        <table style="width:100%; margin-top:26px; font-size:10.5pt; border-collapse:collapse;">
+          <tr>
+            <td style="width:38%; vertical-align:top;">
+              Orang Tua/Wali
+              <div style="height:64px;"></div>
+              ........................................
+            </td>
+            <td style="width:24%;"></td>
+            <td style="width:38%; vertical-align:top;">
+              ${tglCetak}<br>
+              Wali Kelas
+              <div style="height:52px;"></div>
+              <b><u>${namaWalas}</u></b><br>
+              NIP. ${nipWalas}
+            </td>
+          </tr>
+          <tr>
+            <td colspan="3" style="padding-top:18px;">
+              <div style="width:45%; margin:0 auto; text-align:left;">
+                Mengetahui,<br>
+                Kepala Sekolah
+                <div style="height:54px;"></div>
+                <b><u>${state.kepalaSekolah.nama}</u></b><br>
+                NIP. ${state.kepalaSekolah.nip}
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="page-footer">
+        <span>${namaUpper} &nbsp;|&nbsp; ${kelas}</span>
+        <span>Halaman 2</span>
+      </div>
+    </div>
+  `;
+
+  return page1 + page2;
+}
+
+function renderPreviewRapor() {
+  const nisn = document.getElementById('filterSiswaCetak').value;
+  const siswa = state.siswa.find(s => getSiswaNISN(s) === nisn);
+  const container = document.getElementById('printAreaContainer');
+
+  if (!siswa) {
+    container.innerHTML = `<div class="bg-white p-8 rounded-xl text-center text-slate-500">Pilih peserta didik untuk melihat pratinjau rapor F4.</div>`;
+    return;
+  }
+
+  container.innerHTML = buildRaporDuaHalamanHTML(siswa);
+}
+
+function cetakSatuSiswa() {
+  renderPreviewRapor();
+  setTimeout(() => window.print(), 150);
+}
+
+function cetakSemuaSatuKelas() {
+  const kelas = document.getElementById('filterKelasCetak').value;
+  const siswaKelas = state.siswa
+    .filter(s => getSiswaKelas(s) === kelas)
+    .sort((a, b) => getSiswaNama(a).localeCompare(getSiswaNama(b), 'id'));
+
+  if (siswaKelas.length === 0) return;
+  const container = document.getElementById('printAreaContainer');
+  container.innerHTML = siswaKelas.map(s => buildRaporDuaHalamanHTML(s)).join('');
+  setTimeout(() => {
+    window.print();
+    renderPreviewRapor();
+  }, 250);
+}
+
+// ============================================================================
+// TAB 5: ADMIN - PENETAPAN WALI KELAS
+// ============================================================================
+function renderAdminWalas() {
+  const tahun = document.getElementById('globalTahun').value;
+  const kelasList = getUniqueKelasList();
+  const tbody = document.getElementById('tbodyAdminWalas');
+
+  tbody.innerHTML = kelasList.map((kelas, idx) => {
+    const jmlSiswa = state.siswa.filter(s => getSiswaKelas(s) === kelas).length;
+    const saved = state.raporWaliKelas[`${tahun}|${kelas}`];
+    const fk = deteksiFaseKelompok(kelas);
+
+    const guruOpts = `<option value="">-- Pilih Wali Kelas --</option>` +
+      state.guru.map(g => {
+        const nama = getGuruNama(g);
+        const hp = getGuruHP(g);
+        const nip = getGuruNIP(g);
+        const selected = saved && (saved.nama_wali_kelas === nama || normalizePhone(saved.no_hp_wali_kelas) === hp) ? 'selected' : '';
+        return `<option value="${nama}|${nip}|${hp}" ${selected}>${nama} (${hp || 'Tanpa HP'})</option>`;
+      }).join('');
+
+    return `
+      <tr class="hover:bg-slate-50" data-walas-kelas="${kelas}">
+        <td class="p-2.5 text-center">${idx + 1}</td>
+        <td class="p-2.5 font-bold text-slate-800">${kelas}</td>
+        <td class="p-2.5 text-slate-600">${getLabelFase(fk)}</td>
+        <td class="p-2.5 text-center">${jmlSiswa} siswa</td>
+        <td class="p-2.5">
+          <select onchange="onSelectWalasRow(this)" class="sel-walas w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white">
+            ${guruOpts}
+          </select>
+        </td>
+        <td class="p-2.5 text-slate-500 hp-walas-cell">${saved?.no_hp_wali_kelas || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function onSelectWalasRow(selectEl) {
+  const val = selectEl.value;
+  const hpCell = selectEl.closest('tr').querySelector('.hp-walas-cell');
+  if (!val) {
+    hpCell.textContent = '-';
+    return;
+  }
+  const parts = val.split('|');
+  hpCell.textContent = parts[2] || '-';
+}
+
+async function simpanWaliKelasKeServer() {
+  const tahun = document.getElementById('globalTahun').value;
+  const rows = document.querySelectorAll('#tbodyAdminWalas tr[data-walas-kelas]');
+  const payload = [];
+
+  rows.forEach(tr => {
+    const kelas = tr.dataset.walasKelas;
+    const val = tr.querySelector('.sel-walas').value;
+    if (!val) return;
+    const [nama, nip, hp] = val.split('|');
+
+    const record = {
+      tahun_pelajaran: tahun,
+      kelas: kelas,
+      nama_wali_kelas: nama,
+      nip_wali_kelas: nip || '-',
+      no_hp_wali_kelas: hp || ''
+    };
+    state.raporWaliKelas[`${tahun}|${kelas}`] = record;
+    payload.push(record);
+  });
+
+  saveLocalCache();
+
+  try {
+    if (payload.length > 0) {
+      const { error } = await db.from('rapor_wali_kelas').upsert(payload, {
+        onConflict: 'tahun_pelajaran,kelas'
+      });
+      if (error) throw error;
+    }
+    showToast('Penetapan Wali Kelas berhasil disimpan ke Server.');
+  } catch (err) {
+    showToast('Penetapan Wali Kelas tersimpan di cache lokal.', true);
+  }
+}
+
+// ============================================================================
+// TAB 6: ADMIN - SUSUNAN MAPEL PER FASE (FASE E X, FASE F XI, FASE F XII)
+// ============================================================================
+function renderAdminSettingMapel() {
+  const fk = document.getElementById('adminFaseSelect').value;
+  const list = state.raporSettingMapel[fk] || [];
+  const tbody = document.getElementById('tbodyAdminMapel');
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">Belum ada mata pelajaran untuk fase ini. Tambahkan melalui pilihan di atas.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map((item, idx) => `
+    <tr class="hover:bg-slate-50">
+      <td class="p-2.5 text-center font-bold">${idx + 1}</td>
+      <td class="p-2.5">
+        <select onchange="ubahKelompokMapelFase('${fk}', ${idx}, this.value)" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white w-full">
+          <option value="A" ${item.kelompok === 'A' ? 'selected' : ''}>A. Kelompok Umum</option>
+          <option value="B" ${item.kelompok === 'B' ? 'selected' : ''}>B. Kelompok Kejuruan</option>
+        </select>
+      </td>
+      <td class="p-2.5 text-slate-500">${item.kode_mapel}</td>
+      <td class="p-2.5">
+        <input type="text" value="${item.nama_mapel_cetak}" onchange="ubahNamaCetakMapelFase('${fk}', ${idx}, this.value)"
+          class="w-full border border-slate-300 rounded px-2.5 py-1 text-xs font-medium" />
+      </td>
+      <td class="p-2.5 text-center space-x-1">
+        <button type="button" onclick="geserUrutanMapel('${fk}', ${idx}, -1)" class="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded font-bold">↑</button>
+        <button type="button" onclick="geserUrutanMapel('${fk}', ${idx}, 1)" class="px-2 py-1 bg-slate-200 hover:bg-slate-300 rounded font-bold">↓</button>
+        <button type="button" onclick="hapusMapelDariFase('${fk}', ${idx})" class="px-2 py-1 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded font-bold">×</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function tambahMapelKeFase() {
+  const fk = document.getElementById('adminFaseSelect').value;
+  const sel = document.getElementById('adminTambahMapelSelect');
+  const kode = sel.value;
+  const nama = sel.options[sel.selectedIndex]?.text || kode;
+
+  const list = state.raporSettingMapel[fk] || [];
+  if (list.some(x => x.kode_mapel === kode)) {
+    showToast('Mata pelajaran tersebut sudah ada dalam daftar fase ini.', true);
+    return;
+  }
+
+  list.push({
+    fase_key: fk,
+    urutan: list.length + 1,
+    kelompok: 'A',
+    kode_mapel: kode,
+    nama_mapel_cetak: nama,
+    aktif: true
+  });
+  state.raporSettingMapel[fk] = list;
+  renderAdminSettingMapel();
+}
+
+function ubahKelompokMapelFase(fk, idx, val) {
+  state.raporSettingMapel[fk][idx].kelompok = val;
+}
+
+function ubahNamaCetakMapelFase(fk, idx, val) {
+  state.raporSettingMapel[fk][idx].nama_mapel_cetak = val.trim();
+}
+
+function geserUrutanMapel(fk, idx, arah) {
+  const list = state.raporSettingMapel[fk];
+  const target = idx + arah;
+  if (target < 0 || target >= list.length) return;
+  const temp = list[idx];
+  list[idx] = list[target];
+  list[target] = temp;
+  list.forEach((item, i) => item.urutan = i + 1);
+  renderAdminSettingMapel();
+}
+
+function hapusMapelDariFase(fk, idx) {
+  state.raporSettingMapel[fk].splice(idx, 1);
+  state.raporSettingMapel[fk].forEach((item, i) => item.urutan = i + 1);
+  renderAdminSettingMapel();
+}
+
+async function simpanSettingMapelKeServer() {
+  const fk = document.getElementById('adminFaseSelect').value;
+  const list = state.raporSettingMapel[fk] || [];
+  const payload = list.map((item, idx) => ({
+    fase_key: fk,
+    urutan: idx + 1,
+    kelompok: item.kelompok,
+    kode_mapel: item.kode_mapel,
+    nama_mapel_cetak: item.nama_mapel_cetak,
+    aktif: true
+  }));
+
+  saveLocalCache();
+
+  try {
+    await db.from('rapor_setting_mapel').delete().eq('fase_key', fk);
+    if (payload.length > 0) {
+      const { error } = await db.from('rapor_setting_mapel').insert(payload);
+      if (error) throw error;
+    }
+    showToast(`Susunan mapel ${getLabelFase(fk)} berhasil disimpan ke Server.`);
+  } catch (err) {
+    showToast('Susunan mapel tersimpan di cache lokal.', true);
+  }
+}
+
+// ============================================================================
+// BOOTSTRAP SAAT HALAMAN DIBUKA
+// ============================================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadLocalCache();
+  syncAllFromServer(false);
+});
+</script>
+</body>
+</html>
